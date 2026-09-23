@@ -1,0 +1,78 @@
+{
+  "markets": [
+    {
+      "ticker": "TESTBTC-100",
+      "event_ticker": "TESTBTC",
+      "title": "Will BTC be above $100,000?",
+      "status": "open",
+      "strike_type": "greater",
+      "floor_strike": 100000,
+      "yes_bid_dollars": "0.61",
+      "yes_ask_dollars": "0.63",
+      "no_bid_dollars": "0.37",
+      "no_ask_dollars": "0.39",
+      "expiration_time": "2026-12-31T21:00:00Z"
+    },
+    {
+      "ticker": "TESTBTC-110",
+      "event_ticker": "TESTBTC",
+      "title": "Will BTC be above $110,000?",
+      "status": "open",
+      "strike_type": "greater",
+      "floor_strike": 110000,
+      "yes_bid_dollars": "0.50",
+      "yes_ask_dollars": "0.52",
+      "no_bid_dollars": "0.48",
+      "no_ask_dollars": "0.50",
+      "expiration_time": "2026-12-31T21:00:00Z"
+    },
+    {
+      "ticker": "TESTBTC-120",
+      "event_ticker": "TESTBTC",
+      "title": "Will BTC be above $120,000?",
+      "status": "open",
+      "strike_type": "greater",
+      "floor_strike": 120000,
+      "yes_bid_dollars": "0.54",
+      "yes_ask_dollars": "0.56",
+      "no_bid_dollars": "0.44",
+      "no_ask_dollars": "0.46",
+      "expiration_time": "2026-12-31T21:00:00Z"
+    },
+    {
+      "ticker": "TESTTEMP-70",
+      "event_ticker": "TESTTEMP",
+      "title": "Will temperature be above 70?",
+      "status": "open",
+      "strike_type": "greater",
+      "floor_strike": 70,
+      "yes_bid_dollars": "0.79",
+      "yes_ask_dollars": "0.81",
+      "no_bid_dollars": "0.19",
+      "no_ask_dollars": "0.21"
+    },
+    {
+      "ticker": "TESTTEMP-80",
+      "event_ticker": "TESTTEMP",
+      "title": "Will temperature be above 80?",
+      "status": "open",
+      "strike_type": "greater",
+      "floor_strike": 80,
+      "yes_bid_dollars": "0.59",
+      "yes_ask_dollars": "0.61",
+      "no_bid_dollars": "0.39",
+      "no_ask_dollars": "0.41"
+    },
+    {
+      "ticker": "IGNORED-BETWEEN",
+      "event_ticker": "TESTBTC",
+      "title": "Will BTC be between two prices?",
+      "status": "open",
+      "strike_type": "between",
+      "floor_strike": 100000,
+      "cap_strike": 110000,
+      "yes_bid_dollars": "0.10",
+      "yes_ask_dollars": "0.12"
+    }
+  ]
+}
