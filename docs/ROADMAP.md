@@ -1,0 +1,24 @@
+# Build status against the Predictions Cup roadmap
+
+- [x] Preserve original Kalshi coherence detector.
+- [x] Generic binary-market models and truth-table relationships.
+- [x] Structural payoff verifier.
+- [x] Depth-aware executable-edge scanner with VWAP and profitable-size search.
+- [x] Paper broker with atomic precheck.
+- [x] Risk limits and stale-book gate.
+- [x] Local ledger and reconciliation diagnostics.
+- [x] Fail-closed live execution state machine.
+- [x] API retry semantics: reads/cancel vs unknown order submission.
+- [x] Durable SQLite research store.
+- [x] Concurrent collector and adaptive polling priority.
+- [x] External-signal settlement compatibility guard.
+- [x] Fair-value weighting, time decay, shrinkage, fractional Kelly, Brier score.
+- [x] No-lookahead audit primitives.
+- [x] Deterministic news-to-market mapping (mapping only; no direct trading).
+- [x] Market-maker reservation price/inventory skew core.
+- [x] Bounded tournament risk multiplier.
+- [x] CI workflow and project-specific Claude skills.
+- [ ] Exact Predictions Cup API endpoint/JSON adapter — blocked on dynamic API schema visibility; no endpoint is guessed.
+- [ ] Live authenticated fixture capture — requires user's API key locally.
+- [ ] 1,000+ live snapshot/paper validation — requires elapsed live-market time.
+- [ ] Limited live fills/reconciliation — requires prior gates and user's explicit local live enablement.

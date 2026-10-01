@@ -1,98 +1,99 @@
-# Prediction Market Coherence
+# Prediction Market Coherence — Predictions Cup System
 
-Research MVP for detecting logical pricing inconsistencies in threshold prediction markets, starting with Kalshi greater-than contracts.
+Execution-aware prediction-market research system derived from the original Kalshi threshold-coherence MVP and now bound to the official Super Market `/api/v1` contract.
 
-## Research question
+## Current status
 
-For the same event, greater-than contracts must obey monotonicity. If `K1 < K2`, then:
+Version `0.3.0` has two layers:
+
+1. **Venue-independent research core** — logical relationship truth tables, executable depth/VWAP, payoff verification, paper execution, risk limits, backtest guards, storage and monitoring.
+2. **Super Market binding** — official bearer auth, concrete endpoints, exchange-orderbook normalization, idempotent order payloads, atomic multi-leg admission, tournament context, canonical ALL relationships and a read-only production smoke test.
+
+Live trading remains fail-closed by default.
+
+## Critical model distinction
+
+Super Market uses:
 
 ```text
-P(X > K1) >= P(X > K2)
+Market   = container
+Exchange = tradable contract
 ```
 
-The detector flags timestamps where two-sided YES midpoints violate that relationship. It separately computes a **gross executable nested edge** using asks:
+Orders and order books use `exchangeId`. The original generic model retains the legacy `market_id` field name for replay compatibility; the Super Market adapter stores the `exchangeId` there and exposes an `exchange_id` alias.
 
-```text
-buy YES(lower strike) + buy NO(higher strike)
-gross_edge = 1 - yes_ask(lower) - no_ask(higher)
-```
-
-Fees, slippage, fill risk, and settlement-rule equivalence are deliberately not treated as solved in this MVP.
-
-## Why this implementation is conservative
-
-- Only `strike_type="greater"` markets with `floor_strike` are included.
-- Markets are matched inside the same `event_ticker`.
-- Midpoint tests require a valid two-sided YES book.
-- Executable edge uses asks, not midpoint prices.
-- Non-threshold contracts are ignored rather than inferred from titles.
-
-## Setup
+## Install
 
 ```bash
-python -m venv .venv
+python3 -m venv .venv
 source .venv/bin/activate
-pip install -e ".[dev]"
+pip install -e '.[dev,research]'
 ```
 
-## Run against the included deterministic fixture
-
-```bash
-python -m prediction_market_coherence.cli --fixture tests/fixtures/markets.json
-```
-
-Expected key result:
-
-```text
-TESTBTC: K=110000 ... -> K=120000 ... | gap=4.00¢ | gross executable edge=2.00¢
-```
-
-## Run against live Kalshi public market data
-
-```bash
-python -m prediction_market_coherence.cli --live
-```
-
-Or restrict the scan to one event:
-
-```bash
-python -m prediction_market_coherence.cli --live --event <EVENT_TICKER>
-```
-
-Kalshi public market endpoint used by the client:
-
-```text
-GET https://external-api.kalshi.com/trade-api/v2/markets
-```
-
-## Tests
+## Release gate
 
 ```bash
 pytest -q
+python scripts/verify_invariants.py
+python -m compileall -q src
+ruff check .
+pyright
 ```
 
-## Current scope
+If you have a fresh extracted API audit:
 
-MVP 1 focuses only on static monotonicity detection. Planned research extensions:
+```bash
+PYTHONPATH=src python scripts/verify_api_contract.py tmp/api-discovery/core-api-audit.json
+```
 
-1. Historical 1-minute violation frequency/magnitude/duration.
-2. Quote-executable vs fee-adjusted arbitrage.
-3. Liquidity and lead-lag price discovery.
-4. Live WebSocket L2 book reconstruction and order-flow features.
-5. Execution-aware backtesting and robustness checks.
+## Read-only Super Market gate
 
-## Project structure
+Keep `PMC_ALLOW_LIVE_TRADING=0`, create a **read-scope** API key, set `SUSQ_TOURNAMENT_SLUG`, then:
+
+```bash
+set -a
+source .env
+set +a
+python scripts/susq_smoke.py --tournament-slug "$SUSQ_TOURNAMENT_SLUG"
+```
+
+The smoke test sends **zero write requests**. See `docs/READ_ONLY_GATE.md`.
+
+## Atomic execution
+
+The official API exposes `POST /orders/multi-leg`, which atomically admits 1–10 legs. The `AtomicLiveExecutor` uses that route for multi-leg candidates. Atomic admission does not imply complete fills; any resting/partial leg remains a reconciliation/cancel problem and is not marked reconciled automatically.
+
+## Main modules
 
 ```text
-src/prediction_market_coherence/
-  client.py          # public Kalshi REST client
-  models.py          # normalized threshold market
-  relationships.py   # grouping and strike ordering
-  detector.py        # monotonicity + gross executable edge
-  cli.py             # command-line scanner
+client.py                 legacy Kalshi public data client
+models.py                 normalized books/contracts/candidates
+relationships.py          local proved truth-table relationships
+payoff.py                 exhaustive state payoff analysis
+execution.py              depth/VWAP executable sizing
+risk.py                   exposure/cash/staleness limits
+paper.py                  atomic paper broker
+live.py                   sequential + atomic fail-closed live state machines
+susq_client.py            official Super Market /api/v1 client
+susq_schema.py            official book/order schema adapters
+susq_relationships.py     canonical ALL relationship/constraint parsers
+collector.py              concurrent data collection
+storage.py                SQLite research journal
+signals.py                fair-value/calibration primitives
+backtest.py               look-ahead and execution-edge guards
+maker.py                  market-making primitives
+health.py                 kill-switch evaluation
+```
 
-tests/
-  fixtures/
-  test_models.py
-  test_detector.py
+## Next gate
+
+Do not move directly from unit tests to autonomous live orders. The next sequence is:
+
+```text
+read-only authenticated smoke test
+→ explicit tournament-context verification
+→ 1,000+ live order-book snapshots
+→ paper/replay validation
+→ controlled order plumbing
+→ limited live execution
 ```
