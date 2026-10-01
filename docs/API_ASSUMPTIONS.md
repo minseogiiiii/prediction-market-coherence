@@ -1,24 +1,20 @@
-# Predictions Cup API integration assumptions
+# Predictions Cup API integration status
 
-## Facts verified from official public material
+This document supersedes the earlier placeholder-assumptions note. The official Super Market OpenAPI 3.1.0 contract was extracted and audited on 2026-10-01. The implementation is now bound to documented production paths, authentication, order payloads, idempotency semantics, exchange order books, tournament context, relationships, and realtime-token behavior.
 
-- Participants may use the API for market data, order submission/cancellation, positions, and automated strategies.
-- Participant keys may trade but cannot use restricted administrator endpoints.
-- A trade counts only after explicit platform confirmation.
-- Market and limit orders exist; unmatched limit quantity may rest in the peer-to-peer order book.
-- YES and NO are complements at settlement; selling YES at p is economically equivalent to buying NO at 1-p.
-- Cancellation may return HTTP 503 when the trading engine is temporarily overloaded; the official changelog says retrying cancellation is safe.
+See `API_BINDING.md` for the exact machine-critical contract and `READ_ONLY_GATE.md` for the production validation sequence.
 
-Sources checked 2026-10-01:
-- https://predictionscup.com/rules/
-- https://sig.thesuper.market/docs/markets-and-trading
-- https://sig.thesuper.market/docs/changelog
-- https://sig.thesuper.market/api/v1/docs
+## Still deliberately unclaimed
 
-## Deliberately *not* guessed
+Offline contract validation does **not** prove the user's production account state or live venue behavior. These remain gated on authenticated read-only validation:
 
-The dynamic Scalar API reference could be opened but its endpoint table/schema was not retrievable in the build environment. Therefore this repository does not invent endpoint paths, auth header names, order JSON fields, IOC/FOK support, rate-limit numbers, or response schemas.
+- API-key validity and scopes
+- exact Predictions Cup tournament slug/UUID for the account
+- live market/exchange payload samples
+- tournament membership/enrolment state
+- observed latency, rate-limit, and 5xx behavior
+- realtime delivery/recovery behavior
+- real order submit/fill/cancel/reconciliation
+- strategy profitability
 
-`EndpointMap.from_env()` requires exact documented paths. `AuthConfig.from_env()` requires the documented auth header. The live order adapter remains gated until these are copied from the official API reference and verified with read-only requests.
-
-This is a correctness decision: an incomplete integration is safer than a plausible but fabricated live API schema.
+Live trading remains fail-closed by default.

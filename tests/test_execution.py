@@ -64,3 +64,47 @@ def test_property_random_vwap_never_below_best_or_above_worst():
         assert f.average_price is not None
         assert f.worst_price is not None
         assert levels[0].price <= f.average_price <= f.worst_price <= levels[-1].price
+
+
+def test_official_books_from_different_tournament_contexts_are_never_combined():
+    rel = mutually_exclusive("r", "A", "B", evidence="official")
+    a = OrderBook(
+        "A",
+        NOW,
+        no_asks=(BookLevel(D("0.4"), D("10")),),
+        source_sequence=1,
+        received_at=NOW,
+        context_id="t1",
+    )
+    b = OrderBook(
+        "B",
+        NOW,
+        no_asks=(BookLevel(D("0.5"), D("10")),),
+        source_sequence=2,
+        received_at=NOW,
+        context_id="t2",
+    )
+    assert build_two_leg_candidate(rel, {"A": a, "B": b}) is None
+
+
+def test_unversioned_or_implicit_official_book_is_theoretical_only():
+    rel = mutually_exclusive("r", "A", "B", evidence="official")
+    a = OrderBook(
+        "A",
+        NOW,
+        no_asks=(BookLevel(D("0.4"), D("10")),),
+        source_sequence=None,
+        received_at=NOW,
+        context_id="tid",
+    )
+    b = OrderBook(
+        "B",
+        NOW,
+        no_asks=(BookLevel(D("0.5"), D("10")),),
+        source_sequence=2,
+        received_at=NOW,
+        context_id="tid",
+    )
+    candidate = build_two_leg_candidate(rel, {"A": a, "B": b})
+    assert candidate is not None
+    assert candidate.theoretical_only

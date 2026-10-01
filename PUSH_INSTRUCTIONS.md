@@ -1,14 +1,26 @@
-# GitHub handoff
+# Sync v0.3 onto the existing `predictions-cup-system` branch
 
-The connected GitHub integration could read `minseogiiiii/prediction-market-coherence` but returned HTTP 403 when asked to create a branch, so this build was not pushed automatically.
-
-From the directory containing this repository:
+From the cloned repository on the Mac, copy the v0.3 files into the repo, then run the release gate before committing.
 
 ```bash
-git checkout -b predictions-cup-system
-git add .
-git commit -m "Build execution-aware Predictions Cup trading system"
-git push -u origin predictions-cup-system
+source .venv/bin/activate
+pip install -e '.[dev,research]'
+pytest -q
+python scripts/verify_invariants.py
+python -m compileall -q src
+ruff check .
+pyright
 ```
 
-Then open a pull request into `main` and let `.github/workflows/ci.yml` run.
+Expected functional checks in this build: `90 passed` and `truth_tables=5 random_books=10000 status=OK`.
+
+Then:
+
+```bash
+git add .
+git status
+git commit -m "Bind Predictions Cup system to official Super Market API"
+git push
+```
+
+Do not commit `.env` or any API key. Do not enable `PMC_ALLOW_LIVE_TRADING` yet.

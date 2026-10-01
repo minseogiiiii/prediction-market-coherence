@@ -56,22 +56,38 @@ class BookLevel:
 
 @dataclass(frozen=True, slots=True)
 class OrderBook:
+    """Normalized binary-contract order book.
+
+    `market_id` is retained for backward compatibility with the original research
+    MVP. For the Super Market adapter it contains an **exchangeId**, because an
+    Exchange is the platform's tradable contract unit.
+    """
+
     market_id: str
     observed_at: datetime
     yes_bids: tuple[BookLevel, ...] = ()
     yes_asks: tuple[BookLevel, ...] = ()
     no_bids: tuple[BookLevel, ...] = ()
     no_asks: tuple[BookLevel, ...] = ()
+    source_sequence: int | None = None
+    received_at: datetime | None = None
+    context_id: str | None = None
 
     def __post_init__(self) -> None:
         if self.observed_at.tzinfo is None:
             raise ValueError("observed_at must be timezone-aware")
+        if self.received_at is not None and self.received_at.tzinfo is None:
+            raise ValueError("received_at must be timezone-aware")
         if not self.market_id:
             raise ValueError("market_id is required")
         self._assert_sorted(self.yes_bids, descending=True, name="yes_bids")
         self._assert_sorted(self.no_bids, descending=True, name="no_bids")
         self._assert_sorted(self.yes_asks, descending=False, name="yes_asks")
         self._assert_sorted(self.no_asks, descending=False, name="no_asks")
+
+    @property
+    def exchange_id(self) -> str:
+        return self.market_id
 
     @staticmethod
     def _assert_sorted(levels: tuple[BookLevel, ...], *, descending: bool, name: str) -> None:
@@ -127,9 +143,19 @@ class Relationship:
             if len(state) != width:
                 raise ValueError("allowed state width does not match market_ids")
 
+    @property
+    def exchange_ids(self) -> tuple[str, ...]:
+        return self.market_ids
+
 
 @dataclass(frozen=True, slots=True)
 class TradeLeg:
+    """One synthetic leg.
+
+    `market_id` is a legacy field name. Super Market execution adapters interpret
+    it as the platform `exchangeId`.
+    """
+
     market_id: str
     side: Side
     quantity: Decimal
@@ -140,6 +166,10 @@ class TradeLeg:
             raise ValueError("quantity must be positive")
         if not ZERO < self.max_price < ONE:
             raise ValueError("max_price must be in (0, 1)")
+
+    @property
+    def exchange_id(self) -> str:
+        return self.market_id
 
 
 @dataclass(frozen=True, slots=True)
@@ -221,11 +251,12 @@ class ThresholdMarket:
 
 
 def normalize_levels(raw: Iterable[dict[str, Any] | tuple[Any, Any]]) -> tuple[BookLevel, ...]:
-    """Parse generic `[price,size]` or `{price,size}` levels without guessing units."""
+    """Parse `[price,size]` or `{price,size|quantity}` levels without guessing units."""
     out: list[BookLevel] = []
     for item in raw:
         if isinstance(item, dict):
-            p, s = item.get("price"), item.get("size")
+            p = item.get("price")
+            s = item.get("size", item.get("quantity"))
         else:
             p, s = item
         price, size = to_decimal(p), to_decimal(s)

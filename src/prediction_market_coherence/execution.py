@@ -72,6 +72,24 @@ def build_two_leg_candidate(
     a, b = relationship.market_ids
     if a not in books or b not in books:
         return None
+
+    book_a = books[a]
+    book_b = books[b]
+    # Explicit Super Market tournament contexts must never be mixed. Legacy
+    # replay books have no `received_at` marker and remain context-agnostic.
+    if book_a.context_id != book_b.context_id and (
+        book_a.context_id is not None or book_b.context_id is not None
+    ):
+        return None
+
+    official_book = book_a.received_at is not None or book_b.received_at is not None
+    unversioned_official = official_book and (
+        book_a.source_sequence is None or book_b.source_sequence is None
+    )
+    implicit_official_context = official_book and (
+        book_a.context_id is None or book_b.context_id is None
+    )
+
     sides = canonical_hedge_sides(relationship)
     asks_a = books[a].asks(sides[0])
     asks_b = books[b].asks(sides[1])
@@ -119,7 +137,7 @@ def build_two_leg_candidate(
     )
     guaranteed = analyze_payoff(relationship, unit_legs).minimum_payout
     edge = guaranteed - best_cost_per_bundle
-    max_age = max(books[a].age_seconds(), books[b].age_seconds())
+    max_age = max(book_a.age_seconds(), book_b.age_seconds())
     raw_id = f"{relationship.relation_id}|{best_quantity}|{best_cost_per_bundle}"
     candidate_id = hashlib.sha256(raw_id.encode()).hexdigest()[:16]
     return ExecutionCandidate(
@@ -135,10 +153,15 @@ def build_two_leg_candidate(
         max_profitable_quantity=best_quantity,
         expected_profit=edge * best_quantity,
         book_age_seconds=max_age,
+        theoretical_only=unversioned_official or implicit_official_context,
         metadata={
             "avg_price_a": str(fa.average_price),
             "avg_price_b": str(fb.average_price),
             "worst_price_a": str(fa.worst_price),
             "worst_price_b": str(fb.worst_price),
+            "context_id": book_a.context_id,
+            "source_sequence_a": book_a.source_sequence,
+            "source_sequence_b": book_b.source_sequence,
+            "official_book": official_book,
         },
     )
