@@ -4,16 +4,21 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "prediction-market-coherence"
-version = "0.1.0"
-description = "Detect logical pricing inconsistencies in threshold prediction markets."
+version = "0.2.0"
+description = "Execution-aware prediction-market coherence research and Predictions Cup trading system."
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = ["requests>=2.31"]
+dependencies = [
+  "requests>=2.31",
+  "httpx>=0.28",
+]
 
 [project.optional-dependencies]
-dev = ["pytest>=8"]
+research = ["polars>=1.0", "duckdb>=1.0"]
+dev = ["pytest>=8", "hypothesis>=6", "ruff>=0.6", "pyright>=1.1"]
 
 [project.scripts]
+pmc = "prediction_market_coherence.cli:main"
 pmc-detect = "prediction_market_coherence.cli:main"
 
 [tool.setuptools.packages.find]
@@ -22,3 +27,12 @@ where = ["src"]
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]
+addopts = "-ra"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.pyright]
+pythonVersion = "3.11"
+typeCheckingMode = "basic"

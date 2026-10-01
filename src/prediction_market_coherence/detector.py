@@ -1,9 +1,9 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from decimal import Decimal
-from itertools import combinations
-from collections.abc import Iterable
+from itertools import combinations, pairwise
 
 from .models import ThresholdMarket
 
@@ -20,53 +20,29 @@ class Violation:
 
     @property
     def midpoint_gap_cents(self) -> Decimal:
-        return self.midpoint_gap * Decimal("100")
+        return self.midpoint_gap * Decimal(100)
 
 
-def executable_nested_edge(
-    lower: ThresholdMarket,
-    higher: ThresholdMarket,
-) -> Decimal | None:
-    """
-    Gross guaranteed edge for nested events H ⊂ L:
-      buy YES(lower strike) + buy NO(higher strike).
-    Each winning contract pays $1, so guaranteed payout is at least $1.
-    Fees/slippage are intentionally excluded from the MVP.
-    """
+def executable_nested_edge(lower: ThresholdMarket, higher: ThresholdMarket) -> Decimal | None:
     if lower.yes_ask is None or higher.no_ask is None:
         return None
     if lower.yes_ask <= 0 or higher.no_ask <= 0:
         return None
-    return Decimal("1") - lower.yes_ask - higher.no_ask
+    return Decimal(1) - lower.yes_ask - higher.no_ask
 
 
 def detect_monotonicity_violations(
-    family: Iterable[ThresholdMarket],
-    *,
-    adjacent_only: bool = False,
+    family: Iterable[ThresholdMarket], *, adjacent_only: bool = False
 ) -> list[Violation]:
-    """
-    For greater-than thresholds K_low < K_high, coherence requires
-        P(X > K_low) >= P(X > K_high).
-    Detect violations using two-sided YES midpoints.
-    """
     ordered = sorted(family, key=lambda m: m.strike)
-    pairs: Iterable[tuple[ThresholdMarket, ThresholdMarket]]
-    if adjacent_only:
-        pairs = zip(ordered, ordered[1:])
-    else:
-        pairs = combinations(ordered, 2)
-
+    pairs = pairwise(ordered) if adjacent_only else combinations(ordered, 2)
     violations: list[Violation] = []
     for lower, higher in pairs:
         if not lower.strike < higher.strike:
             continue
-
-        lower_mid = lower.midpoint
-        higher_mid = higher.midpoint
+        lower_mid, higher_mid = lower.midpoint, higher.midpoint
         if lower_mid is None or higher_mid is None:
             continue
-
         gap = higher_mid - lower_mid
         if gap > 0:
             violations.append(
@@ -80,5 +56,4 @@ def detect_monotonicity_violations(
                     gross_executable_edge=executable_nested_edge(lower, higher),
                 )
             )
-
     return sorted(violations, key=lambda v: v.midpoint_gap, reverse=True)
