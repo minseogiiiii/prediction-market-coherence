@@ -13,3 +13,6 @@ data/
 *.sqlite3
 *.db
 .DS_Store
+
+# Local API discovery artifacts
+tmp/api-discovery/
