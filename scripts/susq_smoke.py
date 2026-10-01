@@ -43,7 +43,7 @@ async def main_async() -> int:
         tournaments = await _run(
             checks,
             "TOURNAMENTS",
-            lambda: client.list_tournaments(status="active", limit=100),
+            lambda: client.list_tournaments(status="any", limit=100),
         )
         available = []
         if isinstance(tournaments, dict) and isinstance(tournaments.get("data"), list):
@@ -52,7 +52,7 @@ async def main_async() -> int:
                 for row in tournaments["data"]
                 if isinstance(row, dict)
             ]
-            checks[-1].detail = f"active={len(available)}"
+            checks[-1].detail = f"accessible={len(available)}"
 
         tournament_id: str | None = None
         slug = args.tournament_slug
