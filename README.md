@@ -18,7 +18,7 @@ Freshly reproduced on the `vlab-audit-prep` branch:
 - `pyright`: 0 errors, 0 warnings
 - source compilation: passed
 - local validation environment: macOS, Python 3.14.5
-- CI is configured to target Python 3.11, but this audit does not treat that CI target as a reproduced result
+- **GitHub Actions Python 3.11 release gate passed** on the current PR head (Ruff, Pyright, pytest, invariants, and source compilation)
 
 Selected coverage on critical modules:
 
