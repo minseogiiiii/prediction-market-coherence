@@ -24,7 +24,7 @@ Results:
 - `ruff check .`: passed
 - `pyright`: 0 errors, 0 warnings, 0 informations
 
-The repository CI configuration targets Python 3.11, but this report does not treat that configured target as a freshly reproduced result.
+GitHub Actions also reproduced the release gate successfully on Python 3.11 for this PR: Ruff passed, Pyright passed, pytest passed, the invariant verifier passed, and source compilation passed. The 84% coverage figure above comes from the separate Python 3.14.5 local coverage run; coverage is not claimed as re-measured on Python 3.11.
 
 ## Coverage Review
 
