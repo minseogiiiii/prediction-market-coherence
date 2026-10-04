@@ -33,32 +33,69 @@ set +a
 python scripts/susq_smoke.py --tournament-slug "$SUSQ_TOURNAMENT_SLUG"
 ```
 
-Target:
+The explicit tournament context, exchange orderbook, portfolio read, and `WRITE REQUESTS 0` must pass.
+
+## 4. Production collection design
+
+Latency probing on the production API showed that direct exchange books are materially more stable than combined market books. The collector therefore uses:
 
 ```text
-ACCOUNT            PASS
-TOURNAMENTS        PASS
-TOURNAMENT         PASS
-MARKETS            PASS
-EXCHANGE_BOOK      PASS
-RELATIONSHIPS      PASS
-CONSTRAINTS        PASS
-POSITIONS          PASS or SKIP before enrolment
-WRITE REQUESTS      0
+GET /exchanges/{exchangeId}/orderbook?tournamentId=...&depth=...
 ```
 
-A FAIL must be investigated before continuing. Do not switch to a trade-scoped key to work around a read failure.
+instead of the combined market orderbook endpoint for repeated sampling.
 
-## 4. Data-collection gate
+The client-side request-start budget is capped, hidden GET retries are disabled, every wire attempt is recorded, `Retry-After` is honored when present, and the HTTP timeout is configurable. A default depth of 200 is retained because the observed direct-exchange latency difference between depth 50 and 200 was small relative to network/server variance.
 
-After the smoke test passes, collect at least 1,000 versioned order-book snapshots in the explicit tournament context. Required metrics:
+## 5. 100-snapshot validation run
 
-- REST latency
-- 429/5xx rate
-- `asOf.sequence` monotonicity
-- null-`asOf` rate
-- spread/depth distribution
-- quote lifetime
-- schema failures
+Run a medium validation before the 1,000-snapshot gate:
 
-Only then connect the paper execution/scanner to the live books.
+```bash
+rm -f data/susq_readonly_100.sqlite3 \
+      data/susq_readonly_100.sqlite3-wal \
+      data/susq_readonly_100.sqlite3-shm
+
+python scripts/susq_collect.py \
+  --tournament-slug "$SUSQ_TOURNAMENT_SLUG" \
+  --target-snapshots 100 \
+  --markets 10 \
+  --depth 200 \
+  --reads-per-minute 80 \
+  --timeout-seconds 15 \
+  --progress-every 25 \
+  --db data/susq_readonly_100.sqlite3
+
+python scripts/susq_analyze_collection.py data/susq_readonly_100.sqlite3
+```
+
+Do not proceed if there are schema failures or sequence regressions. Investigate recurring transport failures, 429/503 responses, or a high null-`asOf` rate.
+
+## 6. 1,000-snapshot gate
+
+After the 100-snapshot run is clean enough to characterize the production path:
+
+```bash
+rm -f data/susq_readonly.sqlite3 \
+      data/susq_readonly.sqlite3-wal \
+      data/susq_readonly.sqlite3-shm
+
+python scripts/susq_collect.py \
+  --tournament-slug "$SUSQ_TOURNAMENT_SLUG" \
+  --target-snapshots 1000 \
+  --markets 10 \
+  --depth 200 \
+  --reads-per-minute 80 \
+  --timeout-seconds 15 \
+  --progress-every 50 \
+  --db data/susq_readonly.sqlite3
+
+python scripts/susq_analyze_collection.py data/susq_readonly.sqlite3
+```
+
+The SQLite database contains normalized snapshots plus two telemetry tables:
+
+- `collection_requests`: one row per direct exchange-book HTTP attempt with market/exchange IDs, latency, HTTP status, and error code/text.
+- `collection_metrics`: one row per normalized exchange book, linked to its request and carrying sequence, spread/depth, displayed quantity, and quote-lifetime telemetry.
+
+The run must end with `WRITE REQUESTS 0`. Snapshot count alone is not a sufficient gate: inspect latency tails, failures, null `asOf`, sequence regressions, depth/spread, and quote lifetime before connecting paper execution.
