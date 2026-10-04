@@ -16,3 +16,9 @@ data/
 
 # Local API discovery artifacts
 tmp/api-discovery/
+
+# Coverage artifacts
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
