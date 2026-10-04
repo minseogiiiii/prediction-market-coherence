@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections import defaultdict
 from collections.abc import Iterable
+import re
 
 from .models import Relationship, RelationType, ThresholdMarket
 
@@ -18,18 +19,43 @@ def normalize_greater_markets(raw_markets: Iterable[dict]) -> list[ThresholdMark
     return out
 
 
+def _semantic_subject(title: str) -> str:
+    """Normalize a threshold title while removing the numeric strike.
+
+    The legacy Kalshi scanner is deliberately conservative: contracts are only
+    compared when both the event and the non-numeric proposition text match.
+    This prevents same-event, cross-player contamination while keeping numeric
+    threshold ladders together. Canonical Super Market relationships do not use
+    this heuristic; they come from the venue's authoritative relationship API.
+    """
+    text = title.casefold()
+    text = re.sub(r"(?<![a-z])[-+]?\\$?\\d[\\d,]*(?:\\.\\d+)?(?:%|[kmb])?(?![a-z])", " ", text)
+    text = re.sub(r"[^a-z0-9]+", " ", text)
+    return " ".join(text.split())
+
+
 def group_threshold_families(
     markets: Iterable[ThresholdMarket],
 ) -> dict[str, list[ThresholdMarket]]:
-    grouped: dict[str, list[ThresholdMarket]] = defaultdict(list)
+    grouped: dict[tuple[str, str], list[ThresholdMarket]] = defaultdict(list)
+    subjects_by_event: dict[str, set[str]] = defaultdict(set)
+
     for market in markets:
-        if market.event_ticker:
-            grouped[market.event_ticker].append(market)
-    return {
-        event: sorted(family, key=lambda m: m.strike)
-        for event, family in grouped.items()
-        if len(family) >= 2
-    }
+        if not market.event_ticker:
+            continue
+        subject = _semantic_subject(market.title)
+        # Empty/malformed titles fail closed into ticker-isolated families.
+        subject_key = subject or f"ticker:{market.ticker.casefold()}"
+        grouped[(market.event_ticker, subject_key)].append(market)
+        subjects_by_event[market.event_ticker].add(subject_key)
+
+    out: dict[str, list[ThresholdMarket]] = {}
+    for (event, subject), family in grouped.items():
+        if len(family) < 2:
+            continue
+        key = event if len(subjects_by_event[event]) == 1 else f"{event}::{subject}"
+        out[key] = sorted(family, key=lambda m: m.strike)
+    return out
 
 
 def implication(relation_id: str, antecedent: str, consequent: str, *, evidence: str) -> Relationship:

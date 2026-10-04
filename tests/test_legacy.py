@@ -66,3 +66,45 @@ def test_adjacent_only_finds_same_local_violation():
 def test_executable_nested_edge_uses_asks():
     _, fs = families()
     assert executable_nested_edge(fs["TESTBTC"][1], fs["TESTBTC"][2]) == Decimal("0.02")
+
+
+def test_same_event_different_subjects_are_not_cross_compared():
+    raw = [
+        {
+            "ticker": "GAME-DAK-40",
+            "event_ticker": "GAME",
+            "title": "Will Dak Prescott have above 40 rushing yards?",
+            "strike_type": "greater",
+            "floor_strike": 40,
+        },
+        {
+            "ticker": "GAME-DAK-50",
+            "event_ticker": "GAME",
+            "title": "Will Dak Prescott have above 50 rushing yards?",
+            "strike_type": "greater",
+            "floor_strike": 50,
+        },
+        {
+            "ticker": "GAME-HENRY-40",
+            "event_ticker": "GAME",
+            "title": "Will Derrick Henry have above 40 rushing yards?",
+            "strike_type": "greater",
+            "floor_strike": 40,
+        },
+        {
+            "ticker": "GAME-HENRY-50",
+            "event_ticker": "GAME",
+            "title": "Will Derrick Henry have above 50 rushing yards?",
+            "strike_type": "greater",
+            "floor_strike": 50,
+        },
+    ]
+
+    grouped = group_threshold_families(normalize_greater_markets(raw))
+
+    assert len(grouped) == 2
+    assert sorted(len(family) for family in grouped.values()) == [2, 2]
+    for family in grouped.values():
+        titles = " ".join(market.title for market in family)
+        assert not ("Dak Prescott" in titles and "Derrick Henry" in titles)
+
