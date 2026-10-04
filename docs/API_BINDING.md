@@ -1,39 +1,41 @@
-# Super Market API binding (OpenAPI 1.0.0)
+# Super Market API binding
 
-Validated against the 2026-10-01 extracted `Super Market API` OpenAPI 3.1.0 contract.
+The implementation was developed against a **2026-10-01 extracted Super Market OpenAPI 3.1.0 contract**. The raw local extraction is intentionally not committed to this public repository; `scripts/verify_api_contract.py` can check a refreshed local extract for machine-critical drift.
+
+Contract validation is not authenticated production validation.
 
 ## Production and authentication
 
 - Production base: `https://www.thesuper.market/api/v1`
 - Preferred auth: `Authorization: Bearer <key>`
 - Alternate auth: `X-API-Key: <key>`
-- Standard key budget documented by the API: 100 reads/minute, 30 writes/minute.
-- Realtime messages do not count against REST request budgets.
+- The extracted contract documented standard request budgets for reads/writes.
+- Realtime behavior is documented separately from authoritative REST state.
 
-The client defaults to the production base and bearer authentication. No endpoint-path environment variables are needed in v0.3.
+The client defaults to the production base and bearer authentication.
 
 ## Correct data model
 
 A `Market` is a container. An `Exchange` is the tradable contract. Orders, positions, books and trades reference `exchangeId`.
 
-The original research code retained the generic field name `market_id` inside `OrderBook` and `TradeLeg`. Under the Super Market adapter that field **must contain the exchange ID**, never the market container ID. The models expose `exchange_id` aliases to make that explicit while retaining replay compatibility.
+The venue-independent model retains the legacy field name `market_id` in `OrderBook` and `TradeLeg`. Under the Super Market adapter that field contains the **exchange ID** and exposes an `exchange_id` alias.
 
 ## Order books
 
-`GET /exchanges/{id}/orderbook` returns one YES-normalized book with `bids`, `asks`, and `asOf`.
+`GET /exchanges/{id}/orderbook` is parsed as a YES-normalized book.
 
-The adapter derives the side-relative NO book exactly:
+The adapter derives the side-relative NO book mechanically:
 
 ```text
 NO ask = 1 - YES bid
 NO bid = 1 - YES ask
 ```
 
-Quantities are preserved at the corresponding price rung. `asOf.sequence` and `asOf.at` are stored on the normalized book. If `asOf` is null, the local receive time is used and `source_sequence` stays null.
+Quantities are preserved at the corresponding rung. `asOf.sequence` and `asOf.at` are stored when supplied. If `asOf` is null, local receive time is retained and `source_sequence` remains null; such missing authoritative version metadata is treated conservatively downstream.
 
 ## Orders
 
-Single order body:
+A single-order payload has the contract shape:
 
 ```json
 {
@@ -47,54 +49,36 @@ Single order body:
 }
 ```
 
-Fresh limit orders must use integer quantity and a `0.005` price tick within `0.005..0.995`.
+Local validation enforces integer quantity and the documented `0.005` price tick within `0.005..0.995`.
 
-`POST /orders/multi-leg` admits 1-10 legs atomically: all legs are persisted or none are. This removes sequential placement risk but **does not guarantee complete fills**. A successful request can still leave one or more legs resting. Live code therefore reports `PARTIAL` until all legs are filled and authoritative REST reconciliation is complete.
+The extracted contract describes `POST /orders/multi-leg` as atomic admission of 1–10 legs: all legs are persisted or none are. **Atomic admission is not a fill guarantee.** The state machine therefore treats resting/partial legs as unresolved execution state requiring reconciliation/cancel handling.
 
-When an official ALL relationship is used, pass its UUID as `relationshipConstraint`. The engine validates the relationship immediately before dispatch, but the OpenAPI reference explicitly says that concurrent fills/graph changes can create a later violation, so relationship preflight is not treated as a risk-free execution guarantee.
+When a canonical relationship UUID is available, it can be passed as `relationshipConstraint`. Relationship validation is not treated as a guarantee against later concurrent state changes.
 
 ## Idempotency and retries
 
-Every placement carries a client-supplied `idempotencyKey` in the JSON body.
+Every placement carries a client-supplied idempotency key.
 
-The client classifies these as retryable with the same logical payload/key:
-
-- `429 RATE_LIMITED`
-- `409 REQUEST_IN_FLIGHT`
-- `502 ORDER_STATUS_UNKNOWN`
-- `503 TX_CONFLICT`
-- `503 SERVICE_UNAVAILABLE`
-
-It does not automatically invent a new key or blindly repeat a write after a transport failure. A transport failure is marked outcome-unknown and must be reconciled or retried with the identical idempotency key.
+The client distinguishes documented transient/retryable states from ambiguous write transport failures. It does not invent a fresh logical order after an uncertain write outcome. Unknown economic state must be reconciled.
 
 ## Tournament context
 
-Use `GET /tournaments/{slug}` to resolve the tournament UUID. Then carry that UUID as `tournamentId` through market discovery, exchange price/book reads, relationship evaluation and order placement.
-
-This avoids accidental dependence on the organization's mutable default tournament.
+The adapter resolves explicit tournament context and carries the tournament ID through discovery, book reads, relationship evaluation and order payloads rather than relying on an implicit mutable default.
 
 ## Relationships
 
-Canonical ALL relationships are authoritative through:
+Canonical relationships are treated as authoritative. The local translator intentionally supports only simple relationship forms it can prove without interpretation: implication/monotonic, complementary, and two-member mutually-exclusive relationships. Complex boolean expressions remain authoritative-only.
 
-- `GET /relationships`
-- `GET /relationships/graph`
-- `GET /relationships/constraints`
+## Realtime boundary
 
-The local truth-table translator intentionally supports only simple relationships it can prove without interpretation: implication/monotonic, complementary, and two-member mutually-exclusive. Complex boolean expressions remain authoritative-only until a dedicated AST verifier is implemented.
-
-## Realtime
-
-`POST /realtime/token` returns a short-lived token, `supabaseUrl`, `anonKey` and a user channel. Realtime is best-effort and is **not** the authoritative state source. Initial state, reconnects, token refreshes, revision gaps and `resyncRequired` must trigger REST resynchronization.
-
-The first integration gate deliberately stays REST read-only. Realtime is the next optimization after schema and tournament-context validation.
+Realtime is not treated as the authoritative state source in the current validated path. Reconnect/token/revision-gap behavior would require dedicated production validation before promotion.
 
 ## Contract regression
 
-Run the extracted-contract verifier whenever the OpenAPI reference is refreshed:
+With a refreshed local audit artifact:
 
 ```bash
 PYTHONPATH=src python scripts/verify_api_contract.py tmp/api-discovery/core-api-audit.json
 ```
 
-It fails closed if machine-critical endpoint/auth/orderbook/order assumptions drift.
+The verifier fails closed when machine-critical endpoint/auth/orderbook/order assumptions drift.

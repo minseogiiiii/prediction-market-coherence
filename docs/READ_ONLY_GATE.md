@@ -1,10 +1,12 @@
 # Read-only production gate
 
-Do not enable live trading before this gate passes.
+This document describes **future production validation steps**. Passing unit tests or contract fixtures does not mean this gate has passed.
+
+Do not enable live trading before the read-only and paper gates are completed.
 
 ## 1. Create a read-only API key
 
-In Super Market Settings -> API Keys, create a key with the `read` scope only. Keep the key local; never commit or paste it into chat.
+In Super Market Settings -> API Keys, create a key with the `read` scope only. Keep the key local; never commit or paste it into repository files.
 
 ```bash
 cp .env.example .env
@@ -19,7 +21,7 @@ SUSQ_TOURNAMENT_SLUG=...
 PMC_ALLOW_LIVE_TRADING=0
 ```
 
-## 2. Export local environment
+## 2. Export the local environment
 
 ```bash
 set -a
@@ -27,29 +29,25 @@ source .env
 set +a
 ```
 
-## 3. Run the no-write smoke test
+## 3. Run the zero-write smoke test
 
 ```bash
 python scripts/susq_smoke.py --tournament-slug "$SUSQ_TOURNAMENT_SLUG"
 ```
 
-The explicit tournament context, exchange orderbook, portfolio read, and `WRITE REQUESTS 0` must pass.
+Require explicit tournament context, successful read paths, and `WRITE REQUESTS 0`.
 
-## 4. Production collection design
+## 4. Collection path
 
-Latency probing on the production API showed that direct exchange books are materially more stable than combined market books. The collector therefore uses:
+Repeated sampling uses the tradable Exchange order book directly:
 
 ```text
 GET /exchanges/{exchangeId}/orderbook?tournamentId=...&depth=...
 ```
 
-instead of the combined market orderbook endpoint for repeated sampling.
+The collector keeps request telemetry, uses an explicit request-start budget, honors `Retry-After` when available, and exposes an HTTP timeout. These are implementation properties; production latency/rate-limit behavior must still be measured from an authenticated account.
 
-The client-side request-start budget is capped, hidden GET retries are disabled, every wire attempt is recorded, `Retry-After` is honored when present, and the HTTP timeout is configurable. A default depth of 200 is retained because the observed direct-exchange latency difference between depth 50 and 200 was small relative to network/server variance.
-
-## 5. 100-snapshot validation run
-
-Run a medium validation before the 1,000-snapshot gate:
+## 5. 100-snapshot characterization run
 
 ```bash
 rm -f data/susq_readonly_100.sqlite3 \
@@ -69,11 +67,11 @@ python scripts/susq_collect.py \
 python scripts/susq_analyze_collection.py data/susq_readonly_100.sqlite3
 ```
 
-Do not proceed if there are schema failures or sequence regressions. Investigate recurring transport failures, 429/503 responses, or a high null-`asOf` rate.
+Do not proceed if there are unexplained schema failures or sequence regressions. Inspect transport failures, 429/503 responses, null-`asOf` frequency, spread/depth and latency tails.
 
 ## 6. 1,000-snapshot gate
 
-After the 100-snapshot run is clean enough to characterize the production path:
+Only after the 100-snapshot run is understood:
 
 ```bash
 rm -f data/susq_readonly.sqlite3 \
@@ -93,9 +91,9 @@ python scripts/susq_collect.py \
 python scripts/susq_analyze_collection.py data/susq_readonly.sqlite3
 ```
 
-The SQLite database contains normalized snapshots plus two telemetry tables:
+The SQLite database stores normalized snapshots plus:
 
-- `collection_requests`: one row per direct exchange-book HTTP attempt with market/exchange IDs, latency, HTTP status, and error code/text.
-- `collection_metrics`: one row per normalized exchange book, linked to its request and carrying sequence, spread/depth, displayed quantity, and quote-lifetime telemetry.
+- `collection_requests`: request latency/status/error telemetry;
+- `collection_metrics`: sequence, spread/depth, displayed quantity and quote-lifetime telemetry.
 
-The run must end with `WRITE REQUESTS 0`. Snapshot count alone is not a sufficient gate: inspect latency tails, failures, null `asOf`, sequence regressions, depth/spread, and quote lifetime before connecting paper execution.
+The run must end with `WRITE REQUESTS 0`. Snapshot count alone is not sufficient: analyze failures, null `asOf`, sequence behavior, depth/spread, latency and quote lifetime before connecting paper execution.

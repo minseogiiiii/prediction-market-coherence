@@ -1,276 +1,244 @@
 # Prediction Market Coherence and Execution Research
 
-A quantitative-market research system for detecting logical inconsistencies in prediction markets, translating them into executable order-book candidates, and validating the difference between a mathematical opportunity and a production-ready trade.
+[![CI](https://github.com/minseogiiiii/prediction-market-coherence/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/minseogiiiii/prediction-market-coherence/actions/workflows/ci.yml)
 
-The project began as a threshold-coherence detector and now includes relationship truth tables, payoff verification, depth/VWAP execution analysis, risk controls, paper execution, fail-closed live adapters, Super Market API bindings, and read-only collection/telemetry tooling.
+A quantitative-market research system for testing whether logically related prediction contracts are priced coherently, then separating a **mathematical inconsistency** from a **quoted opportunity**, a **depth/VWAP-supported execution candidate**, and an **actually validated trade outcome**.
 
-**Current status:** research/paper-ready prototype. **Not production certified. No profitability claim.**
+> **Core principle:** detecting a quantitative signal is only the beginning. It must survive logical, market-data, execution, risk, and systems validation.
 
-## Key Verified Results
+**Current status:** tested research/paper-execution prototype with production-oriented controls. **Not production certified. No profitability claim.**
 
-Freshly reproduced on the `vlab-audit-prep` branch:
+## Verified evidence
+
+Validation snapshot: **2026-10-04, `main`**.
 
 - **94/94 automated tests passed**
-- **84% total Python coverage**: 2,022 statements, 333 missed
+- **84% Python test coverage** — 2,022 statements / 333 missed
 - **5 canonical relationship truth tables** verified
 - **10,000 randomized order-book invariant cases** passed
-- `ruff check .`: passed
-- `pyright`: 0 errors, 0 warnings
-- source compilation: passed
-- local validation environment: macOS, Python 3.14.5
-- **GitHub Actions Python 3.11 release gate passed** on the current PR head (Ruff, Pyright, pytest, invariants, and source compilation)
+- **Ruff passed**
+- **Pyright: 0 errors / 0 warnings**
+- Python source compilation passed
+- deterministic fixture demo reproduced the expected single threshold violation
+- GitHub Actions runs the release gate on **Python 3.11**
+- the same test/coverage suite was also reproduced locally on **Python 3.14.5**
 
-Selected coverage on critical modules:
+See [VALIDATION_REPORT.md](VALIDATION_REPORT.md) for the exact claim boundaries and detailed audit notes.
 
-| Module | Coverage |
-| --- | ---: |
-| `relationships.py` | 91% |
-| `detector.py` | 87% |
-| `execution.py` | 93% |
-| `risk.py` | 95% |
-| `paper.py` | 91% |
-| `backtest.py` | 93% |
-| `live.py` | 84% |
-| `susq_schema.py` | 84% |
-| `susq_collection.py` | 82% |
-| `susq_client.py` | 71% |
+## The quantitative idea
 
-Coverage is not treated as proof by itself. The validation emphasis is on relationship correctness, payoff invariants, executable depth, timestamps, fail-closed execution behavior, and malformed/partial external responses.
-
-## Why Coherence Matters
-
-For nested outcomes, probability ordering must respect logical implication.
-
-For example, if
+For nested events, logical implication imposes a probability ordering. If
 
 ```text
 X > 120  implies  X > 110
 ```
 
-then
+then coherence requires
 
 ```text
-P(X > 110) >= P(X > 120)
+P(X > 120) <= P(X > 110)
 ```
 
-A midpoint violation is only a **logical pricing inconsistency**. It is not automatically a trade.
+A violation of that inequality is a **logical pricing inconsistency**. It is not automatically an arbitrage that can be filled.
 
-The system separates four increasingly demanding layers:
-
-1. **Logical inconsistency** — probabilities violate a proved relationship.
-2. **Quoted/executable inconsistency** — available asks imply a positive structural edge.
-3. **Depth-aware candidate** — visible order-book depth and VWAP support a size.
-4. **Paper/live execution state** — execution machinery determines whether the opportunity can actually be acted on.
-
-Authenticated live fills and realized profitability remain outside the validated claims.
-
-## System Architecture
+For a nested threshold pair, the structural hedge is:
 
 ```text
-market / relationship metadata
-        ↓
-normalization + relationship construction
-        ↓
-truth-table / payoff verification
-        ↓
-order-book normalization
-        ↓
-depth + VWAP executable sizing
-        ↓
-risk gates
-        ↓
-paper execution
-        ↓
-fail-closed live execution adapters
-        ↓
-read-only telemetry / reconciliation infrastructure
+buy YES(lower threshold) + buy NO(higher threshold)
 ```
 
-Two relationship paths exist:
+The code then asks progressively harder questions: are there executable asks, is enough visible depth available, what is the VWAP, is the book fresh, do risk limits pass, and what execution state is actually known?
 
-- **Legacy Kalshi threshold research**: conservative threshold-family grouping plus monotonicity checks.
-- **Super Market path**: canonical venue-provided relationships are authoritative; only simple relationship types are translated locally when their truth semantics can be proved without interpretation.
+## Validation ladder
 
-The legacy threshold grouper explicitly separates different semantic subjects inside the same event to avoid cross-player/event-family contamination.
+| Layer | Meaning | Current evidence |
+| --- | --- | --- |
+| **1. Logical** | Relationship/probability constraint is violated | Truth-table and deterministic tests |
+| **2. Quoted** | Current top-of-book quotes imply a positive structural edge | Fixture/unit tested |
+| **3. Depth/VWAP executable candidate** | Visible depth supports a quantity at positive **pre-fee** structural edge | Unit/property tested |
+| **4. Paper execution** | All legs pass a preflight and the local ledger is updated atomically | Tested |
+| **5. Mocked live state machine** | Partial/resting/unknown states and live gates behave correctly against mocked venue responses | Tested |
+| **6. Authenticated production behavior** | Real venue authentication, fills, cancels, races, reconciliation, realized P&L | **Not certified** |
 
-## Validation Layers
+**Transaction-fee boundary:** venue transaction fees are not a first-class term in the structural candidate calculation. A positive candidate edge must therefore **not** be described as net arbitrage profit.
 
-| Capability | Unit / Property Tested | Deterministic Fixture | Paper Tested | Authenticated Live Tested |
-| --- | :---: | :---: | :---: | :---: |
-| Relationship truth tables | Yes | Yes | n/a | No |
-| Legacy threshold monotonicity | Yes | Yes | n/a | No |
-| Event-family contamination regression | Yes | Yes | n/a | No |
-| Payoff minimum / hedge correctness | Yes | Yes | n/a | No |
-| Depth / VWAP sizing | Yes | Yes | n/a | No |
-| Risk limits / stale-book rejection | Yes | Yes | n/a | No |
-| Paper broker atomic precheck | Yes | Yes | Yes | No |
-| No-lookahead primitive | Yes | Yes | n/a | No |
-| Super Market order-book schema | Yes | Yes | n/a | No |
-| Super Market order payload / idempotency schema | Yes | Yes | n/a | No |
-| Live execution state machine | Yes | Yes | n/a | No |
-| Read-only production collector | Yes | Yes | n/a | **Not yet certified against an authenticated production account** |
+## System architecture
 
-"Live execution state machine tested" means mocked/fixture behavior is tested. It does **not** mean real-money or tournament orders were submitted.
+```mermaid
+flowchart LR
+    A[Related contracts] --> B[Relationship / truth table]
+    B --> C[Coherence check]
+    C --> D[Order-book normalization]
+    D --> E[Depth + VWAP sizing]
+    E --> F[Risk / freshness gates]
+    F --> G[Paper execution]
+    G --> H[Mocked live-state logic]
+```
 
-## Deterministic Demo
+The central research path is **logical relationships → execution-aware evaluation → risk/failure boundaries**. Production-oriented API and telemetry modules are secondary infrastructure rather than evidence of live profitability.
 
-Run the original threshold research idea without credentials:
+## Deterministic recruiter demo
+
+No credentials or network access are required:
 
 ```bash
-python -m prediction_market_coherence.cli   kalshi-scan   --fixture tests/fixtures/markets.json
+python -m prediction_market_coherence.cli \
+  kalshi-scan \
+  --fixture tests/fixtures/markets.json
 ```
 
-The fixture includes a deliberate BTC threshold inconsistency. The scanner should report one monotonicity violation between the 110k and 120k thresholds, including midpoint gap and gross ask-based nested edge.
+Expected output:
 
-This demo is deterministic and does not require network access.
+```text
+Greater-than markets: 5
+Threshold families:   2
+Pairs scanned:        4
+Violations:           1
+TESTBTC: K=110000 mid=51.00¢ -> K=120000 mid=55.00¢ | gap=4.00¢ | gross executable edge=2.00¢
+```
 
-## No-Lookahead and Time Integrity
+The final 2.00¢ figure is a **fixture-based gross pre-fee structural edge**, not realized profit.
 
-The repository includes explicit time-integrity primitives:
+## Mathematical correctness
 
-- every `TimedFeature` has an `available_at` timestamp;
-- every `TimedDecision` has a `decision_at` timestamp;
-- `assert_no_lookahead` rejects any feature available after the decision;
-- timestamps must be timezone-aware;
-- official order books preserve venue `asOf.sequence` / `asOf.at` when available;
-- books lacking authoritative version metadata are marked theoretical-only before structural execution can pass the risk layer;
-- stale books are rejected by the risk manager.
+The venue-independent relationship layer supports explicit truth-state definitions for:
 
-These guards are validated as primitives. The repository does **not** claim that every possible historical-data workflow has been audited end-to-end.
+- implication;
+- mutually exclusive outcomes;
+- exhaustive outcomes;
+- complements;
+- equivalent outcomes.
 
-## Executability and Risk Controls
+Payoffs are mechanically evaluated across every allowed truth state. The legacy threshold scanner sorts strikes in the correct subset direction and includes a regression test preventing different named subjects inside the same event from being cross-compared. That legacy title-based family grouping remains a heuristic; the Super Market path instead treats venue-provided canonical relationships as authoritative.
 
-The structural execution engine:
+The Super Market order-book adapter also normalizes binary YES/NO sides mechanically:
 
-- consumes visible asks;
-- computes fill quantity, notional, VWAP and worst price;
+```text
+NO ask = 1 - YES bid
+NO bid = 1 - YES ask
+```
+
+with quantity preserved at the corresponding price level.
+
+## No-lookahead / time integrity
+
+The repository implements and tests **no-lookahead/time-integrity guards**:
+
+- `TimedFeature.available_at` and `TimedDecision.decision_at`;
+- rejection of features unavailable at decision time;
+- timezone-aware timestamp requirements;
+- venue `asOf.sequence` / `asOf.at` preservation when supplied;
+- stale-book rejection;
+- theoretical-only marking for official books that lack authoritative sequence/context metadata.
+
+This is **not** a claim that every possible historical workflow has been proven free of look-ahead bias end to end.
+
+## Execution and risk boundaries
+
+The execution/risk path:
+
+- consumes visible asks rather than midpoint prices;
+- computes notional, VWAP and worst fill price;
 - searches visible depth breakpoints;
-- verifies minimum payout from the underlying relationship truth table;
-- rejects missing/insufficient depth;
-- rejects cross-tournament-context book combinations;
-- marks unversioned official books theoretical-only;
-- applies cash, market-exposure, total-exposure, stale-book and minimum-edge gates;
-- paper-executes only after all legs pass a preflight depth check;
-- keeps live trading disabled unless an explicit runtime gate and acknowledgement are both present.
+- verifies the minimum payout from the relationship truth table;
+- rejects missing or insufficient depth;
+- rejects mixed tournament contexts;
+- rejects or marks unsafe unversioned/stale data;
+- enforces cash, per-market and total-exposure limits;
+- paper-executes only after every leg passes the depth precheck;
+- keeps live trading disabled unless an explicit runtime acknowledgement is supplied.
 
-Important limitation: the structural candidate calculation does **not** currently model a venue transaction-fee schedule as a first-class cost term. Therefore "positive executable edge" in this repository must not be described as net profit after fees.
+Mocked live tests cover state classification such as full fill, partial/resting residuals and known request failures. They do **not** constitute authenticated live trading evidence.
 
-## Super Market Integration
+## Failure modes made explicit
 
-The Super Market adapter is bound to the documented `/api/v1` contract and includes:
-
-- bearer authentication configuration;
-- exchange-level order books;
-- tournament context;
-- order and multi-leg payload schemas;
-- idempotency keys;
-- response normalization;
-- relationship/constraint parsing;
-- read-only collection telemetry;
-- retry handling for documented transient read failures;
-- fail-closed handling for ambiguous write outcomes.
-
-The code deliberately distinguishes **contract/fixture validation** from **authenticated production validation**.
-
-## Failure Modes Explicitly Handled
-
-Examples include:
+The code or tests handle/reject examples including:
 
 - malformed or missing API fields;
-- invalid/tick-misaligned prices;
-- invalid order quantities;
-- stale books;
+- naive timestamps;
+- invalid order quantities or price ticks;
+- one-sided/missing liquidity;
 - insufficient visible depth;
-- mismatched tournament context;
+- stale books;
+- mixed market contexts;
 - unversioned official books;
 - partial/resting multi-leg outcomes;
-- unknown order submission outcomes;
-- duplicate exchanges inside one atomic bundle;
-- API retryable read failures;
+- unknown order-submission outcomes;
+- duplicate exchanges in an atomic bundle;
+- retryable read failures;
 - reconciliation mismatches;
-- excessive API-error/stale-book/open-order conditions through health gates.
+- excessive API-error/stale-book/open-order conditions.
 
-Unexpected software defects are not silently reclassified as market-data failures in the production collector path; known API and schema failures are handled separately.
+## Super Market integration
 
-## What Is NOT Yet Validated
+Lower-level infrastructure includes:
 
-The repository does **not** currently claim:
+- schema-validated REST client/adapters;
+- exchange-level order books;
+- explicit tournament context;
+- idempotent single- and multi-leg order payloads;
+- canonical relationship/constraint parsing;
+- read-only collection telemetry;
+- fail-closed write/error state handling;
+- SQLite research storage.
+
+The API binding was built against an extracted Super Market OpenAPI contract. The raw local audit artifact is not committed to this public repository; [docs/API_BINDING.md](docs/API_BINDING.md) records the machine-critical assumptions and the contract verifier can be rerun against a refreshed local extract.
+
+## What this project does **not** claim
 
 - profitable strategy performance;
 - net profitability after real venue fees;
-- authenticated live order submission/fill/cancel behavior;
-- real partial-fill and cancel-race behavior;
-- end-to-end production reconciliation under real orders;
+- authenticated live order submission/fill/cancel validation;
+- real partial-fill or cancel-race validation;
+- production reconciliation under real orders;
 - long-duration shadow-trading reliability;
-- realtime/WebSocket gap recovery in production;
-- complete end-to-end no-lookahead proof for every future historical pipeline.
+- production WebSocket gap recovery;
+- complete end-to-end no-lookahead proof for every future backtest.
 
-These are explicit promotion gates, not implied capabilities.
+These are promotion gates, not implied capabilities.
 
-## Testing and Reproduction
-
-Install:
+## Reproduce the release gate
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 python -m pip install --upgrade pip
 python -m pip install -e '.[dev,research]'
-```
 
-Run the current local audit gate:
-
-```bash
-python -m pytest -q
-
-python -m pytest   --cov=prediction_market_coherence   --cov-report=term-missing
-
-python -m compileall -q src
 ruff check .
 pyright
+python -m pytest -q \
+  --cov=prediction_market_coherence \
+  --cov-report=term-missing
 python scripts/verify_invariants.py
+python -m compileall -q src
+python -m prediction_market_coherence.cli \
+  kalshi-scan \
+  --fixture tests/fixtures/markets.json
 ```
 
-The invariant script currently verifies 5 canonical relationship truth tables and 10,000 randomized order-book cases.
-
-If an extracted API audit artifact is available locally:
-
-```bash
-PYTHONPATH=src python scripts/verify_api_contract.py tmp/api-discovery/core-api-audit.json
-```
-
-## Repository Structure
+## Repository map
 
 ```text
 src/prediction_market_coherence/
-  relationships.py        local proved relationship constructors + legacy threshold grouping
-  detector.py             legacy monotonicity detector
+  relationships.py        truth-table relationships + legacy threshold grouping
   payoff.py               exhaustive state-payoff verification
-  execution.py            depth/VWAP executable candidate construction
-  risk.py                 cash/exposure/staleness gates
-  paper.py                atomic paper precheck/execution
-  live.py                 fail-closed sequential + atomic execution state machines
-  backtest.py             no-lookahead and execution-adjusted-edge primitives
-  health.py               operational kill-switch evaluation
-  storage.py              SQLite research journal / collection telemetry
-  susq_client.py          Super Market API client
-  susq_schema.py          order-book and order schema adapters
-  susq_relationships.py   canonical relationship/constraint parsers
-  susq_collection.py      rate-budgeted read-only production collector
+  detector.py             threshold coherence detector
+  execution.py            visible-depth / VWAP candidate construction
+  risk.py                 cash, exposure and staleness gates
+  paper.py                all-legs paper precheck/execution
+  backtest.py             time-integrity and execution-edge primitives
+  live.py                 fail-closed execution state machines
+  susq_schema.py          market/order schema normalization
+  susq_client.py          REST client and retry/error semantics
+  susq_collection.py      read-only collection telemetry
+  storage.py              SQLite research journal
 
-tests/
-  deterministic, regression, integration-style and property tests
-
-scripts/
-  verify_invariants.py
-  verify_api_contract.py
-  susq_smoke.py
-  susq_collect.py
-  susq_analyze_collection.py
+tests/                    deterministic, regression and property tests
+scripts/                  validation, smoke-test and collection utilities
+docs/                     API and promotion-gate documentation
 ```
 
-## Current Research Position
+## Bottom line
 
-The repository is best described as a **tested quantitative-market research and paper-execution prototype with production-oriented controls**.
-
-It is intentionally not described as a profitable trading bot or production-certified live trading system.
+This repository is best described as a **validated quantitative-market research and paper-execution prototype**. Its strongest result is not a profitability number; it is the explicit separation between a quantitative idea, an execution-aware candidate, a tested implementation, and behavior that still requires production evidence.

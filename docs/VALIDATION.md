@@ -1,42 +1,42 @@
 # Validation protocol
 
-A strategy is not considered live-ready because unit tests pass. Promotion gates are:
+These are **promotion criteria**, not claims that every gate has already passed.
 
 ## Gate A — deterministic correctness
 
-- All unit tests pass.
+- All automated tests pass.
 - Truth tables for every approved relationship are explicit and non-empty.
-- Every proposed structural bundle has a mechanically verified minimum payoff.
-- Executable edge uses order-book asks and visible depth, never midpoint alone.
-- No-lookahead checks reject features published after the decision timestamp.
+- Every structural bundle has a mechanically verified minimum payoff.
+- Executable analysis uses asks and visible depth rather than midpoint alone.
+- No-lookahead guards reject features published after the decision timestamp.
 
-## Gate B — API contract
+## Gate B — API contract / read-only integration
 
-- Exact endpoint paths/auth copied from the official API reference.
-- Read-only market, order-book, position, order, and balance calls captured as fixtures.
-- Parser tests use those real fixtures.
-- Rate-limit and timestamp semantics documented.
+- Exact endpoint paths/auth are checked against the current official contract.
+- Authenticated read-only market/order-book/position/balance calls are captured or characterized locally.
+- Parsers are checked against current response shapes.
+- Rate-limit and timestamp semantics are documented from evidence rather than assumed.
 
-## Gate C — paper/shadow
+## Gate C — paper / shadow
 
-- At least 1,000 order-book snapshots.
-- No invalid relationship alerts.
-- No negative guaranteed-payoff structural trade.
-- Partial-fill, stale-book, insufficient-depth, and cancel-race tests pass.
-- Shadow orders record expected price, executable size, book age, and post-signal price movement.
+- At least 1,000 order-book snapshots are characterized.
+- No invalid relationship alerts remain unexplained.
+- No structural trade has a negative mechanically verified minimum payout.
+- Stale-book, insufficient-depth and partial/unknown-state handling are exercised.
+- Shadow records include expected price, executable size, book age and post-signal movement.
 
 ## Gate D — limited live
 
-- Explicit live environment gate enabled only after B/C.
-- Small size limits.
-- Every order gets an explicit platform order id/confirmation.
-- Unknown submission outcomes are reconciled; they are never blind-retried.
+- Explicit live environment gate is enabled only after prior gates.
+- Size remains deliberately small.
+- Every order receives an authoritative platform identifier/state.
+- Unknown submission outcomes are reconciled rather than blindly retried.
 - Position and balance reconciliation shows zero unexplained differences.
 - Any reconciliation failure halts new orders.
 
 ## Gate E — strategy promotion
 
-- Expected P&L is separated into signal P&L and execution P&L.
-- Directional/fair-value models report Brier score/log loss and calibration.
-- Market-making is promoted only after measuring spread, fill probability, quote lifetime, post-fill move, and inventory duration.
-- Leaderboard-aware sizing remains bounded by ordinary portfolio risk limits.
+- Signal P&L and execution P&L are separated.
+- Directional/fair-value models report calibration metrics where applicable.
+- Market-making is promoted only after spread, fill, quote-lifetime, post-fill move and inventory-duration analysis.
+- Tournament/leaderboard logic never overrides hard portfolio-risk limits.

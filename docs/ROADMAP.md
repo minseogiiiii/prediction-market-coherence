@@ -1,24 +1,38 @@
-# Build status against the Predictions Cup roadmap
+# Validation roadmap
 
-- [x] Preserve original Kalshi coherence detector.
-- [x] Generic binary-market models and truth-table relationships.
-- [x] Structural payoff verifier.
-- [x] Depth-aware executable-edge scanner with VWAP and profitable-size search.
-- [x] Paper broker with atomic precheck.
-- [x] Risk limits and stale-book gate.
-- [x] Local ledger and reconciliation diagnostics.
-- [x] Fail-closed live execution state machine.
-- [x] API retry semantics: reads/cancel vs unknown order submission.
-- [x] Durable SQLite research store.
-- [x] Concurrent collector and adaptive polling priority.
-- [x] External-signal settlement compatibility guard.
-- [x] Fair-value weighting, time decay, shrinkage, fractional Kelly, Brier score.
-- [x] No-lookahead audit primitives.
-- [x] Deterministic news-to-market mapping (mapping only; no direct trading).
-- [x] Market-maker reservation price/inventory skew core.
-- [x] Bounded tournament risk multiplier.
-- [x] CI workflow and project-specific Claude skills.
-- [ ] Exact Predictions Cup API endpoint/JSON adapter — blocked on dynamic API schema visibility; no endpoint is guessed.
-- [ ] Live authenticated fixture capture — requires user's API key locally.
-- [ ] 1,000+ live snapshot/paper validation — requires elapsed live-market time.
-- [ ] Limited live fills/reconciliation — requires prior gates and user's explicit local live enablement.
+The central project is the research path:
+
+```text
+logical relationship
+→ coherence test
+→ quoted/depth-aware executability
+→ risk gates
+→ paper execution
+→ production evidence only after explicit gates
+```
+
+## Verified in the current repository
+
+- [x] Legacy threshold-coherence detector with cross-subject regression protection.
+- [x] Explicit binary relationship truth tables.
+- [x] Exhaustive state-payoff verification.
+- [x] Visible-depth / VWAP candidate sizing.
+- [x] Context, timestamp and stale-book guards.
+- [x] Cash, per-market and total-exposure limits.
+- [x] Paper execution with all-legs precheck.
+- [x] Ledger/reconciliation diagnostics.
+- [x] Fail-closed live execution state machines tested with mocked responses.
+- [x] Super Market schema/order payload adapters.
+- [x] Durable SQLite research/collection telemetry.
+- [x] Automated tests, coverage, invariant stress validation and CI.
+
+## Required before any production claim
+
+- [ ] Authenticate a read-only production account and capture current schema examples.
+- [ ] Complete and analyze the documented 100- then 1,000-snapshot read-only gates.
+- [ ] Validate real partial-fill/cancel/reconciliation behavior.
+- [ ] Add an explicit venue-fee model before claiming net executable profit.
+- [ ] Validate realtime recovery if realtime data becomes part of an execution path.
+- [ ] Run limited live execution only after the prior gates and explicit local enablement.
+
+None of the unchecked items is implied by a green unit-test suite.
