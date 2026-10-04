@@ -29,7 +29,7 @@ def _semantic_subject(title: str) -> str:
     this heuristic; they come from the venue's authoritative relationship API.
     """
     text = title.casefold()
-    text = re.sub(r"(?<![a-z])[-+]?\\$?\\d[\\d,]*(?:\\.\\d+)?(?:%|[kmb])?(?![a-z])", " ", text)
+    text = re.sub(r"(?<![a-z])[-+]?\$?\d[\d,]*(?:\.\d+)?(?:%|[kmb])?(?![a-z])", " ", text)
     text = re.sub(r"[^a-z0-9]+", " ", text)
     return " ".join(text.split())
 
