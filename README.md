@@ -20,8 +20,8 @@ Validation snapshot: **2026-10-04, `main`**.
 - **Pyright: 0 errors / 0 warnings**
 - Python source compilation passed
 - deterministic fixture demo reproduced the expected single threshold violation
-- GitHub Actions runs the release gate on **Python 3.11**
-- the same test/coverage suite was also reproduced locally on **Python 3.14.5**
+- a clean **GitHub Actions / Python 3.11** run reproduced the same **94 tests / 84% coverage** plus Ruff, Pyright, invariants, compilation, and deterministic demo
+- the same test/coverage suite was independently reproduced locally on **Python 3.14.5**
 
 See [VALIDATION_REPORT.md](VALIDATION_REPORT.md) for the exact claim boundaries and detailed audit notes.
 
