@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/minseogiiiii/prediction-market-coherence/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/minseogiiiii/prediction-market-coherence/actions/workflows/ci.yml)
 
-A quantitative-market research system for testing whether logically related prediction contracts are priced coherently, then separating a **mathematical inconsistency** from a **quoted opportunity**, a **depth/VWAP-supported execution candidate**, and an **actually validated trade outcome**.
+A quantitative-market research system for testing whether logically related prediction contracts are priced coherently, then separating a **mathematical inconsistency** from a **quoted opportunity**, a **depth/VWAP-supported execution candidate**, **paper execution**, and **authenticated production evidence**.
 
 > **Core principle:** detecting a quantitative signal is only the beginning. It must survive logical, market-data, execution, risk, and systems validation.
 

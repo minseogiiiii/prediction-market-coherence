@@ -21,7 +21,7 @@ Current reproduced metrics:
 - `python -m compileall -q src`: passed
 - deterministic fixture demo: 5 greater-than markets, 2 families, 4 pairs, 1 expected violation
 - local reproduction: macOS / Python 3.14.5
-- clean CI reproduction: Ubuntu / Python 3.11 — **94 passed in 2.68s**, **84% coverage**, Ruff passed, Pyright reported 0 errors / 0 warnings, invariants passed, compilation passed, and the deterministic demo passed
+- clean CI reproduction: Ubuntu / Python 3.11 — **94/94 tests passed**, **84% coverage**, Ruff passed, Pyright reported 0 errors / 0 warnings, invariants passed, compilation passed, and the deterministic demo passed
 
 The CI workflow installs the package from the repository from scratch and runs linting, type checking, pytest+coverage, invariant stress validation, source compilation, and the deterministic fixture demo.
 
