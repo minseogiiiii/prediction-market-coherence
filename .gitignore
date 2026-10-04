@@ -1,12 +1,24 @@
 __pycache__/
 *.py[cod]
 .pytest_cache/
+.ruff_cache/
+.pyright/
 .venv/
 venv/
 .env
 *.egg-info/
 dist/
 build/
-data/raw/
-data/processed/
+data/
+*.sqlite3
+*.db
 .DS_Store
+
+# Local API discovery artifacts
+tmp/api-discovery/
+
+# Coverage artifacts
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
