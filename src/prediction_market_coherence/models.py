@@ -174,6 +174,14 @@ class TradeLeg:
 
 @dataclass(frozen=True, slots=True)
 class ExecutionCandidate:
+    """Visible-depth structural candidate, not a realized or fee-net profit claim.
+
+    The historical field names `max_profitable_quantity` and `expected_profit`
+    are retained for API compatibility. They mean maximum quantity with positive
+    **pre-fee structural edge** and edge-times-quantity respectively; venue fees,
+    realized fills, and realized P&L are outside this object.
+    """
+
     candidate_id: str
     relationship_id: str
     legs: tuple[TradeLeg, ...]
